@@ -1,52 +1,533 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
+
 <head>
-<meta charset="UTF-8">
-<title>Artificial Intelligence</title>
-<link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RC Car Arena - Hardware Controller Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Rajdhani:wght@500;600;700&display=swap');
+
+        .font-cyber {
+            font-family: 'Rajdhani', sans-serif;
+        }
+
+        .font-digital {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #020617;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+        }
+
+        .cyber-border {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+    </style>
 </head>
 
-<body>
+<body
+    class="bg-slate-950 text-slate-100 font-cyber min-h-screen flex flex-col selection:bg-blue-600 selection:text-white">
 
-<h1>Website Teknologi Artificial Intelligence</h1>
-<hr>
+    <!-- HEADER -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 p-2.5 rounded-lg text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]">
+                    <i class="fa-solid fa-car-side text-2xl animate-pulse"></i>
+                </div>
+                <div>
+                    <h1
+                        class="text-2xl font-bold font-digital tracking-wider bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                        RC CAR HARDWARE ARENA
+                    </h1>
+                    <p class="text-xs text-slate-400">ID Client: <span id="displayClientId"
+                            class="text-slate-500 font-mono"></span></p>
+                </div>
+            </div>
 
-<nav>
-<a href="index.html">Home</a> |
-<a href="teknologi.html">Teknologi</a> |
-<a href="data-sensor.html">Data Sensor</a> |
-<a href="kontak.html">Kontak</a>
-</nav>
+            <div class="flex gap-4 items-center flex-wrap justify-center">
+                <div class="flex items-center bg-slate-950 border border-slate-800 rounded px-2 py-1">
+                    <span class="text-xs text-slate-400 mr-2 uppercase">Nama Anda:</span>
+                    <input id="playerNameInput" type="text"
+                        class="bg-transparent border-b border-slate-700 text-yellow-400 font-bold text-sm outline-none w-20 md:w-24 text-center"
+                        value="Pemain">
+                    <button onclick="updateName()"
+                        class="ml-2 text-xs bg-slate-800 hover:bg-blue-600 px-2 py-1 rounded">Set</button>
+                </div>
 
-<hr>
+                <div class="flex items-center gap-3 bg-slate-950 px-4 py-2 rounded-full border border-slate-800">
+                    <span class="text-xs text-slate-400 hidden md:inline">Status Broker:</span>
+                    <div id="statusBadge" class="flex items-center gap-2 text-yellow-500 font-semibold text-sm">
+                        <span id="statusDot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-yellow-500"></span>
+                        <span id="statusText">MENGHUBUNGKAN...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
 
-<h2>Apa itu Artificial Intelligence?</h2>
+    <!-- MAIN CONTENT -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-<p>
-<strong>Artificial Intelligence (AI)</strong> adalah teknologi yang memungkinkan
-komputer <em>berpikir dan belajar</em> seperti manusia.
-AI banyak digunakan pada kehidupan modern seperti asisten virtual,
-mobil otomatis, dan sistem rekomendasi.
-</p>
+        <!-- SEKTOR KIRI: KONTROLER & STATUS AKTIF -->
+        <div class="lg:col-span-7 flex flex-col gap-6">
 
-<br>
+            <!-- PANEL STATUS KONTROL HABIS/AKTIF -->
+            <div
+                class="bg-slate-900 rounded-xl p-5 cyber-border flex flex-col justify-between items-center relative min-h-[160px]">
+                <div class="w-full flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
+                    <span class="font-digital text-sm text-blue-400 tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-microchip"></i> KENDALI KENDARAAN FISIK
+                    </span>
+                    <span id="activeCarBadge"
+                        class="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-bold">
+                        BELUM MEMILIH MOBIL
+                    </span>
+                </div>
 
-<figure>
-<img src="https://cdn.pixabay.com/photo/2024/01/29/22/47/ai-generated-8540920_1280.jpg" alt="AI Image">
-<figcaption>Gambar Artificial Intelligence</figcaption>
-</figure>
+                <div class="text-center my-2">
+                    <div class="text-xs text-slate-400 font-bold uppercase tracking-widest mb-1">SISA WAKTU BERMAIN
+                    </div>
+                    <div id="timerDisplay" class="font-digital text-4xl text-emerald-400 font-bold">- : -</div>
+                </div>
+                <div class="text-[11px] text-slate-500 text-center">Tekan tombol WASD / Panah pada keyboard atau gunakan
+                    D-Pad bawah.</div>
+            </div>
 
-<h3>Manfaat AI</h3>
-<ul>
-<li>Otomatisasi pekerjaan</li>
-<li>Analisis data cepat</li>
-<li>Meningkatkan efisiensi industri</li>
-<li>Membantu pengambilan keputusan</li>
-</ul>
+            <!-- PANEL D-PAD CONTROL (TOUCH / CLICK) -->
+            <div
+                class="bg-slate-900 p-6 rounded-xl cyber-border flex flex-col items-center justify-center select-none relative">
+                <div class="text-xs text-slate-400 absolute top-3 left-4 flex items-center gap-2">
+                    <i class="fa-solid fa-keyboard text-emerald-400 animate-pulse"></i>
+                    <span>Keyboard Active (WASD / Panah)</span>
+                </div>
 
-<hr>
+                <div class="grid grid-cols-3 gap-3 w-56 mt-6">
+                    <div></div>
+                    <button id="btn-W" onmousedown="sendCmd('F')" onmouseup="sendCmd('S')"
+                        ontouchstart="sendCmd('F'); event.preventDefault();"
+                        ontouchend="sendCmd('S'); event.preventDefault();"
+                        class="py-6 bg-slate-800 hover:bg-blue-600 active:scale-95 text-white rounded-xl flex items-center justify-center text-2xl transition-all border border-slate-700/50 shadow-lg"><i
+                            class="fa-solid fa-chevron-up"></i></button>
+                    <div></div>
 
-<p>2026.</p>
+                    <button id="btn-A" onmousedown="sendCmd('L')" onmouseup="sendCmd('S')"
+                        ontouchstart="sendCmd('L'); event.preventDefault();"
+                        ontouchend="sendCmd('S'); event.preventDefault();"
+                        class="py-6 bg-slate-800 hover:bg-blue-600 active:scale-95 text-white rounded-xl flex items-center justify-center text-2xl transition-all border border-slate-700/50 shadow-lg"><i
+                            class="fa-solid fa-chevron-left"></i></button>
+                    <button onclick="sendCmd('S')"
+                        class="bg-red-900/40 border border-red-700/50 hover:bg-red-600 text-red-400 hover:text-white rounded-xl flex items-center justify-center text-xs font-bold transition-all shadow-lg">STOP</button>
+                    <button id="btn-D" onmousedown="sendCmd('R')" onmouseup="sendCmd('S')"
+                        ontouchstart="sendCmd('R'); event.preventDefault();"
+                        ontouchend="sendCmd('S'); event.preventDefault();"
+                        class="py-6 bg-slate-800 hover:bg-blue-600 active:scale-95 text-white rounded-xl flex items-center justify-center text-2xl transition-all border border-slate-700/50 shadow-lg"><i
+                            class="fa-solid fa-chevron-right"></i></button>
 
+                    <div></div>
+                    <button id="btn-S" onmousedown="sendCmd('B')" onmouseup="sendCmd('S')"
+                        ontouchstart="sendCmd('B'); event.preventDefault();"
+                        ontouchend="sendCmd('S'); event.preventDefault();"
+                        class="py-6 bg-slate-800 hover:bg-blue-600 active:scale-95 text-white rounded-xl flex items-center justify-center text-2xl transition-all border border-slate-700/50 shadow-lg"><i
+                            class="fa-solid fa-chevron-down"></i></button>
+                    <div></div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- SEKTOR KANAN: GARASI MOBIL, ADMIN & CONSOLE -->
+        <div class="lg:col-span-5 flex flex-col gap-6">
+
+            <!-- GARASI PILIH MOBIL FISIK -->
+            <div class="bg-slate-900 p-5 rounded-xl cyber-border">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-2 mb-4">
+                    <h2 class="text-lg font-bold font-digital text-indigo-400 flex items-center gap-2">
+                        <i class="fa-solid fa-warehouse"></i> GARASI RC CAR FISIK
+                    </h2>
+                    <button onclick="attemptAdminLogin()" id="adminLockBtn"
+                        class="text-slate-500 hover:text-yellow-400 transition-colors" title="Login Admin">
+                        <i class="fa-solid fa-lock"></i>
+                    </button>
+                </div>
+
+                <!-- ADMIN SETTING TIMERS -->
+                <div id="host-config-panel" class="mb-4 bg-slate-950 p-3 rounded border border-slate-800 hidden">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs text-yellow-400 font-bold uppercase"><i class="fa-solid fa-crown"></i>
+                            SETTING WAKTU DARI ADMIN</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <script>
+                            for (let i = 1; i <= 6; i++) {
+                                document.write(`
+                                    <div class="flex flex-col items-center bg-slate-900/50 p-2 rounded border border-slate-800">
+                                        <span class="text-[9px] text-blue-400 font-bold mb-1">Mobil ${i}</span>
+                                        <input id="timer-input-${i}" type="number" class="w-full bg-slate-900 border border-slate-700 text-center text-xs rounded text-white py-1 mb-1 font-mono" value="60">
+                                        <button onclick="broadcastSingleTimer(${i})" class="w-full bg-slate-700 hover:bg-blue-600 text-[9px] font-bold py-1 rounded transition-colors text-white">SAVE</button>
+                                    </div>
+                                `);
+                            }
+                        </script>
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                    <label class="block text-xs text-slate-400 uppercase tracking-wider mb-2">Pilih & Kunci
+                        Kendaraan</label>
+                    <div class="grid grid-cols-2 gap-2" id="car-buttons-container"></div>
+                </div>
+            </div>
+
+            <!-- LOG CONSOLE MQTT -->
+            <div class="flex flex-col flex-grow">
+                <span class="text-xs text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-2">
+                    <i class="fa-solid fa-terminal text-blue-400"></i> System Console Output
+                </span>
+                <div id="mqttConsole"
+                    class="bg-slate-900 p-3 rounded font-mono text-xs h-36 overflow-y-auto space-y-1 text-slate-400 cyber-border">
+                    <div class="text-blue-400">[System] Menyiapkan koneksi ke broker MQTT...</div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- LOGIC SCRIPT -->
+    <script>
+        const myClientId = 'Client_' + Math.floor(Math.random() * 100000);
+        document.getElementById('displayClientId').innerText = myClientId;
+
+        let myPlayerName = document.getElementById('playerNameInput').value.trim();
+
+        // Broker MQTT EMQX Public
+        const brokerUrl = 'wss://broker.emqx.io:8084/mqtt';
+
+        // --- TOPIK UNIK (DISESUAIKAN DENGAN ESP32) ---
+        const topicPrefix = 'Yakuza';
+
+        let mqttClient = null;
+        let myLockedCar = null;
+        let playTimer = null;
+        let timeLeft = 0;
+        let isAdmin = false;
+        let lastCmd = 'S';
+
+        let carTimers = { 1: 60, 2: 60, 3: 60, 4: 60, 5: 60, 6: 60 };
+        let carOwners = { 1: 'free', 2: 'free', 3: 'free', 4: 'free', 5: 'free', 6: 'free' };
+        let carOwnerNames = { 1: '', 2: '', 3: '', 4: '', 5: '', 6: '' };
+
+        const carData = [
+            { id: 1, color: 'text-red-400', name: 'Mobil 1' },
+            { id: 2, color: 'text-blue-400', name: 'Mobil 2' },
+            { id: 3, color: 'text-emerald-400', name: 'Mobil 3' },
+            { id: 4, color: 'text-yellow-400', name: 'Mobil 4' },
+            { id: 5, color: 'text-orange-400', name: 'Mobil 5' },
+            { id: 6, color: 'text-purple-400', name: 'Mobil 6' }
+        ];
+
+        const container = document.getElementById('car-buttons-container');
+        function renderCarButtons() {
+            container.innerHTML = '';
+            carData.forEach(c => {
+                container.innerHTML += `
+                    <button id="targetCar${c.id}" onclick="toggleLock(${c.id})" class="py-2.5 px-2 rounded text-xs border transition-all h-16 leading-tight flex flex-col items-center justify-center text-center bg-slate-900 border-slate-700">
+                        Menghubungkan...
+                    </button>
+                `;
+            });
+        }
+        renderCarButtons();
+
+        function updateName() {
+            let newVal = document.getElementById('playerNameInput').value.trim();
+            if (newVal !== "") {
+                myPlayerName = newVal;
+                addLog(`Nama diubah menjadi: ${myPlayerName}`, 'success');
+                if (myLockedCar !== null && mqttClient && mqttClient.connected) {
+                    let payload = myClientId + "|" + myPlayerName;
+                    mqttClient.publish(`${topicPrefix}/${myLockedCar}/status`, payload, { retain: true });
+                }
+            }
+        }
+
+        function attemptAdminLogin() {
+            if (isAdmin) return;
+            let pwd = prompt("Masukkan Password Admin:");
+            if (pwd === "admin123") {
+                isAdmin = true;
+                document.getElementById('host-config-panel').classList.remove('hidden');
+
+                const lockBtn = document.getElementById('adminLockBtn');
+                lockBtn.innerHTML = '<i class="fa-solid fa-unlock text-emerald-400"></i>';
+                lockBtn.title = "Mode Admin Aktif";
+                addLog("Akses Admin Diberikan. Anda sekarang bisa mengubah durasi timer.", "success");
+            } else if (pwd !== null) {
+                alert("Password Salah!");
+                addLog("Akses Admin Ditolak.", "error");
+            }
+        }
+
+        function broadcastSingleTimer(carId) {
+            if (!isAdmin) return;
+            if (mqttClient && mqttClient.connected) {
+                let timeValue = parseInt(document.getElementById(`timer-input-${carId}`).value) || 60;
+                let payload = {};
+                payload[carId] = timeValue;
+                mqttClient.publish(`${topicPrefix}/config/timers`, JSON.stringify(payload), { retain: true });
+                addLog(`[Admin] Timer Mobil ${carId} diset ke ${timeValue}s`, 'info');
+            }
+        }
+
+        function addLog(message, type = 'info') {
+            const consoleLog = document.getElementById('mqttConsole');
+            const logItem = document.createElement('div');
+            logItem.className = type === 'error' ? 'text-rose-500 font-bold' : (type === 'success' ? 'text-emerald-400 font-bold' : 'text-slate-300');
+            logItem.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            consoleLog.appendChild(logItem);
+            consoleLog.scrollTop = consoleLog.scrollHeight;
+        }
+
+        function startTimer() {
+            clearInterval(playTimer);
+            timeLeft = carTimers[myLockedCar] || 60;
+            document.getElementById('timerDisplay').innerText = timeLeft + " Detik";
+            document.getElementById('timerDisplay').className = "font-digital text-4xl text-emerald-400 font-bold";
+
+            playTimer = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timerDisplay').innerText = timeLeft + " Detik";
+
+                if (timeLeft <= 10) document.getElementById('timerDisplay').className = "font-digital text-4xl text-red-500 font-bold animate-pulse";
+
+                if (timeLeft <= 0) {
+                    clearInterval(playTimer);
+                    document.getElementById('timerDisplay').innerText = "WAKTU HABIS";
+                    if (myLockedCar !== null) {
+                        addLog(`Waktu penggunaan Mobil ${myLockedCar} telah habis!`, "error");
+                        toggleLock(myLockedCar);
+                    }
+                }
+            }, 1000);
+        }
+
+        function updateLockUI() {
+            let foundMine = null;
+            for (let i = 1; i <= 6; i++) {
+                const btn = document.getElementById(`targetCar${i}`);
+                if (!btn) continue;
+                const ownerId = carOwners[i];
+                const limitTime = carTimers[i];
+
+                if (ownerId === 'free' || ownerId === '') {
+                    btn.className = "py-2 px-1 rounded text-[11px] font-semibold border bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-800 transition-all cursor-pointer flex flex-col items-center justify-center text-center";
+                    btn.innerHTML = `<span class="mb-1 font-bold">RC Mobil ${i}</span><span class="text-[10px] text-emerald-400 font-normal">🟢 Tersedia [${limitTime}s]</span>`;
+                    btn.disabled = false;
+                } else if (ownerId === myClientId) {
+                    foundMine = i;
+                    btn.className = `py-2 px-1 rounded text-[11px] font-bold border bg-blue-950/80 text-blue-400 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)] transition-all cursor-pointer flex flex-col items-center justify-center text-center`;
+                    btn.innerHTML = `<span class="mb-1 text-white font-bold">RC Mobil ${i}</span><span class="text-[10px] text-blue-300 font-normal">KENDALI ANDA (Klik Lepas)</span>`;
+                    btn.disabled = false;
+                } else {
+                    let dispName = carOwnerNames[i] || "Pemain";
+                    btn.className = "py-2 px-1 rounded text-[10px] font-semibold border bg-slate-950 text-slate-500 border-slate-900 cursor-not-allowed flex flex-col items-center justify-center text-center";
+                    btn.innerHTML = `<span class="mb-1 font-bold">RC Mobil ${i}</span><span class="text-[9px] text-rose-500 font-normal">🔒 Dipakai: ${dispName}</span>`;
+                    btn.disabled = true;
+                }
+            }
+
+            const badge = document.getElementById('activeCarBadge');
+            if (foundMine !== null && myLockedCar === null) {
+                myLockedCar = foundMine;
+                badge.className = "text-xs px-3 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-600 font-bold";
+                badge.innerText = `MENGENDALIKAN RC MOBIL ${myLockedCar}`;
+                startTimer();
+            } else if (foundMine === null && myLockedCar !== null) {
+                sendCmd('S');
+                myLockedCar = null;
+                clearInterval(playTimer);
+                badge.className = "text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-bold";
+                badge.innerText = "BELUM MEMILIH MOBIL";
+                document.getElementById('timerDisplay').innerText = "- : -";
+                document.getElementById('timerDisplay').className = "font-digital text-4xl text-emerald-400 font-bold";
+            }
+        }
+
+        function connectMQTT() {
+            if (mqttClient) mqttClient.end();
+            try {
+                const willConfig = {
+                    topic: `${topicPrefix}/LWT`,
+                    payload: myClientId,
+                    qos: 1,
+                    retain: false
+                };
+
+                mqttClient = mqtt.connect(brokerUrl, {
+                    clientId: myClientId,
+                    clean: true,
+                    will: willConfig
+                });
+
+                mqttClient.on('connect', () => {
+                    addLog('Terhubung ke Server MQTT Broker EMQX!', 'success');
+                    document.getElementById('statusText').textContent = "TERHUBUNG (ONLINE)";
+                    document.getElementById('statusDot').className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500";
+
+                    mqttClient.subscribe([
+                        `${topicPrefix}/+/status`,
+                        `${topicPrefix}/config/timers`,
+                        `${topicPrefix}/LWT`
+                    ]);
+                });
+
+                mqttClient.on('message', (topic, payload) => {
+                    const msg = payload.toString().trim();
+                    const topicParts = topic.split('/');
+                    const topicType = topicParts[topicParts.length - 1];
+                    const carId = parseInt(topicParts[topicParts.length - 2]);
+
+                    if (topicType === 'status') {
+                        if (msg === 'free') {
+                            carOwners[carId] = 'free';
+                            carOwnerNames[carId] = '';
+                        } else {
+                            let parts = msg.split('|');
+                            carOwners[carId] = parts[0];
+                            carOwnerNames[carId] = parts.length > 1 ? parts[1] : parts[0];
+                        }
+                        updateLockUI();
+                    }
+                    else if (topicType === 'timers') {
+                        try {
+                            const newTimers = JSON.parse(msg);
+                            carTimers = { ...carTimers, ...newTimers };
+                            if (isAdmin) {
+                                for (let id in newTimers) {
+                                    let inputEl = document.getElementById(`timer-input-${id}`);
+                                    if (inputEl) inputEl.value = carTimers[id];
+                                }
+                            }
+                            updateLockUI();
+                        } catch (e) { }
+                    }
+                    else if (topicType === 'LWT') {
+                        const droppedUserId = msg;
+                        for (let i = 1; i <= 6; i++) {
+                            if (carOwners[i] === droppedUserId) {
+                                carOwners[i] = 'free';
+                                carOwnerNames[i] = '';
+                                updateLockUI();
+                                addLog(`Koneksi terputus, membebaskan RC Mobil ${i}.`, 'error');
+                            }
+                        }
+                    }
+                });
+            } catch (e) { addLog(`Koneksi gagal: ${e.message}`, 'error'); }
+        }
+
+        function toggleLock(id) {
+            if (!mqttClient || !mqttClient.connected) return;
+            const statusTopic = `${topicPrefix}/${id}/status`;
+
+            if (carOwners[id] === 'free' || !carOwners[id]) {
+                if (myLockedCar !== null) {
+                    addLog("Lepaskan mobil saat ini dulu sebelum memilih yang lain!", "error"); return;
+                }
+                let payload = myClientId + "|" + myPlayerName;
+                mqttClient.publish(statusTopic, payload, { retain: true });
+                addLog(`Mengunci RC Mobil ${id}...`, "info");
+            } else if (carOwners[id] === myClientId) {
+                mqttClient.publish(`${topicPrefix}/${id}/control`, 'S');
+                mqttClient.publish(statusTopic, 'free', { retain: true });
+                addLog(`Melepaskan RC Mobil ${id}.`, "info");
+            }
+        }
+
+        function sendCmd(cmd) {
+            if (!mqttClient || !mqttClient.connected || myLockedCar === null) return;
+            if (lastCmd !== cmd) {
+                lastCmd = cmd;
+                mqttClient.publish(`${topicPrefix}/${myLockedCar}/control`, cmd, { qos: 0, retain: false });
+                addLog(`[TX -> Mobil ${myLockedCar}] Perintah: ${cmd}`);
+            }
+        }
+
+        window.addEventListener('beforeunload', () => {
+            if (myLockedCar !== null && mqttClient && mqttClient.connected) {
+                mqttClient.publish(`${topicPrefix}/${myLockedCar}/control`, 'S');
+                mqttClient.publish(`${topicPrefix}/${myLockedCar}/status`, 'free', { retain: true });
+            }
+        });
+
+        const keyState = {};
+        function isUserTyping(e) {
+            return ['INPUT', 'TEXTAREA'].includes(e.target.tagName);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (isUserTyping(e)) return;
+
+            const key = e.key.toUpperCase();
+            // Tambahkan C ke daftar tombol yang ditahan default-nya
+            if (['W', 'ARROWUP', 'S', 'ARROWDOWN', 'A', 'ARROWLEFT', 'D', 'ARROWRIGHT', 'C'].includes(key)) e.preventDefault();
+
+            if (!keyState[key]) {
+                keyState[key] = true; handleKeyboardInput();
+                if (key === 'W' || key === 'ARROWUP') document.getElementById('btn-W').classList.add('bg-blue-600');
+                if (key === 'A' || key === 'ARROWLEFT') document.getElementById('btn-A').classList.add('bg-blue-600');
+                if (key === 'S' || key === 'ARROWDOWN') document.getElementById('btn-S').classList.add('bg-blue-600');
+                if (key === 'D' || key === 'ARROWRIGHT') document.getElementById('btn-D').classList.add('bg-blue-600');
+                // Efek visual tombol sirine dipencet
+                if (key === 'C') document.getElementById('btn-C').classList.replace('bg-yellow-900/40', 'bg-yellow-600');
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (isUserTyping(e)) return;
+
+            const key = e.key.toUpperCase();
+            if (keyState[key]) {
+                delete keyState[key]; handleKeyboardInput();
+                if (key === 'W' || key === 'ARROWUP') document.getElementById('btn-W').classList.remove('bg-blue-600');
+                if (key === 'A' || key === 'ARROWLEFT') document.getElementById('btn-A').classList.remove('bg-blue-600');
+                if (key === 'S' || key === 'ARROWDOWN') document.getElementById('btn-S').classList.remove('bg-blue-600');
+                if (key === 'D' || key === 'ARROWRIGHT') document.getElementById('btn-D').classList.remove('bg-blue-600');
+                // Hapus efek visual saat tombol dilepas
+                if (key === 'C') document.getElementById('btn-C').classList.replace('bg-yellow-600', 'bg-yellow-900/40');
+            }
+        });
+
+        function handleKeyboardInput() {
+            let activeCmd = 'S';
+            if (keyState['W'] || keyState['ARROWUP']) activeCmd = 'F';
+            else if (keyState['S'] || keyState['ARROWDOWN']) activeCmd = 'B';
+            else if (keyState['A'] || keyState['ARROWLEFT']) activeCmd = 'L';
+            else if (keyState['D'] || keyState['ARROWRIGHT']) activeCmd = 'R';
+            else if (keyState['C']) activeCmd = 'C'; // Kirim perintah C ke ESP32
+
+            sendCmd(activeCmd);
+        }
+
+        window.onload = function () {
+            updateLockUI();
+            connectMQTT();
+        }
+    </script>
 </body>
+
 </html>
